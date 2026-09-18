@@ -11,7 +11,9 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/", http.FileServer(http.Dir(filepathRoot)))
+	mux.HandleFunc("/healthz", healthzHandler)
+
+	mux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir("filepathroot"))))
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -20,4 +22,10 @@ func main() {
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
 	log.Fatal(srv.ListenAndServe())
+}
+
+func healthzHandler(writer http.ResponseWriter, req *http.Request) {
+	writer.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	writer.WriteHeader(200)
+	writer.Write([]byte("OK"))
 }
