@@ -25,6 +25,8 @@ func main() {
 
 	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
 
+	mux.HandleFunc("POST /api/validate_chirp", validationHandler)
+
 	mux.Handle("/app/", http.StripPrefix("/app", cfg.incrementHits(http.FileServer(http.Dir(filepathRoot)))))
 
 	srv := &http.Server{
