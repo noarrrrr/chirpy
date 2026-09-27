@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 )
+
+var profanity = []string{"kerfuffle", "sharbert", "fornax"}
 
 type basicJsonBody struct {
 	Body string `json:"body"`
 }
 
-type JsonConfirmation struct {
-	Valid bool `json:"valid"`
+type JsonReturnBody struct {
+	CleanedBody string `json:"cleaned_body"`
 }
 
 type JsonError struct {
@@ -29,7 +32,6 @@ func respondWithJsonError(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write(data)
-	return
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, bodyStruct any) {
@@ -85,10 +87,23 @@ func validationHandler(writer http.ResponseWriter, req *http.Request) {
 		respondWithJsonError(writer, 400, errors.New("chirp is too long"))
 		return
 	} else {
-		conf := JsonConfirmation{
-			Valid: true,
+		res := JsonReturnBody{
+			CleanedBody: profanityBanishment(chirp.Body),
 		}
-		respondWithJSON(writer, 200, conf)
+		respondWithJSON(writer, 200, res)
 	}
 
+}
+
+func profanityBanishment(thePossiblyProfane string) string {
+	splittedText := strings.Split(thePossiblyProfane, " ")
+	lowercaseReferance := strings.Split(strings.ToLower(thePossiblyProfane), " ")
+	for i, word := range lowercaseReferance {
+		for _, badWord := range profanity {
+			if word == badWord {
+				splittedText[i] = "****"
+			}
+		}
+	}
+	return strings.Join(splittedText, " ")
 }
