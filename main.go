@@ -16,6 +16,7 @@ type apiConfig struct {
 	dbQueries      *database.Queries
 	fileserverHits atomic.Int32
 	platform       string
+	secret         string
 }
 
 func main() {
@@ -37,6 +38,7 @@ func main() {
 		dbQueries:      dbQueries,
 		fileserverHits: atomic.Int32{},
 		platform:       os.Getenv("PLATFORM"),
+		secret:         os.Getenv("SECRET"),
 	}
 
 	mux := http.NewServeMux()
@@ -56,6 +58,14 @@ func main() {
 	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
 
 	mux.HandleFunc("POST /api/login", cfg.loginUserHandler)
+
+	mux.HandleFunc("POST /api/refresh", cfg.refreshUserHandler)
+
+	mux.HandleFunc("POST /api/revoke", cfg.revokeRefreshTokenHandler)
+
+	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
+
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.deleteChirpHandler)
 
 	mux.Handle("/app/", http.StripPrefix("/app", cfg.incrementHits(http.FileServer(http.Dir(filepathRoot)))))
 
