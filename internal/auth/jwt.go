@@ -50,3 +50,12 @@ func GetBearerToken(headers http.Header) (string, error) {
 	trimmedAuthString, _ := strings.CutPrefix(authString, "Bearer ")
 	return trimmedAuthString, nil
 }
+
+func GetAPIKey(headers http.Header) (string, error) {
+	authString := headers.Get("Authorization")
+	if authString == "" {
+		return "", errors.New("No Auth Header")
+	}
+	trimmedAuthString, _ := strings.CutPrefix(authString, "ApiKey ")
+	return trimmedAuthString, nil
+}

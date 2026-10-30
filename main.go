@@ -17,6 +17,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	platform       string
 	secret         string
+	polkaKey       string
 }
 
 func main() {
@@ -39,6 +40,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		platform:       os.Getenv("PLATFORM"),
 		secret:         os.Getenv("SECRET"),
+		polkaKey:       os.Getenv("POLKA_KEY"),
 	}
 
 	mux := http.NewServeMux()
@@ -66,6 +68,8 @@ func main() {
 	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
 
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.deleteChirpHandler)
+
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.upgradeUserHandler)
 
 	mux.Handle("/app/", http.StripPrefix("/app", cfg.incrementHits(http.FileServer(http.Dir(filepathRoot)))))
 

@@ -45,6 +45,7 @@ type User struct {
 	Email        string    `json:"email"`
 	JWToken      string    `json:"token"`
 	RefreshToken string    `json:"refresh_token"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 }
 
 type Token struct {
@@ -61,6 +62,13 @@ type Chirp struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Body      string    `json:"body"`
 	UserID    uuid.UUID `json:"user_id"`
+}
+
+type userIDWebhook struct {
+	Event string `json:"event"`
+	Data  struct {
+		UserID uuid.UUID `json:"user_id"`
+	} `json:"data"`
 }
 
 func respondWithJsonError(w http.ResponseWriter, code int, err error) {
@@ -246,6 +254,7 @@ func (cfg *apiConfig) createUserHandler(writer http.ResponseWriter, req *http.Re
 		UpdatedAt:      time.Now(),
 		Email:          userInfo.Email,
 		HashedPassword: hashedPass,
+		IsChirpyRed:    false,
 	}
 
 	dbUser, err := cfg.dbQueries.CreateUser(ctx, userparams)
@@ -255,10 +264,11 @@ func (cfg *apiConfig) createUserHandler(writer http.ResponseWriter, req *http.Re
 	}
 
 	user := User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Email:     dbUser.Email,
+		ID:          dbUser.ID,
+		CreatedAt:   dbUser.CreatedAt,
+		UpdatedAt:   dbUser.UpdatedAt,
+		Email:       dbUser.Email,
+		IsChirpyRed: dbUser.IsChirpyRed,
 	}
 
 	respondWithJSON(writer, 201, user)
@@ -321,6 +331,7 @@ func (cfg *apiConfig) loginUserHandler(writer http.ResponseWriter, req *http.Req
 		Email:        dbUserInfo.Email,
 		JWToken:      jwtoken,
 		RefreshToken: refreshToken.Token,
+		IsChirpyRed:  dbUserInfo.IsChirpyRed,
 	}
 
 	respondWithJSON(writer, 200, dbUserWithoutPassword)
@@ -423,10 +434,11 @@ func (cfg *apiConfig) updateUserHandler(writer http.ResponseWriter, req *http.Re
 	dbUser, err := cfg.dbQueries.UpdateUser(req.Context(), params)
 
 	response := User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Email:     dbUser.Email,
+		ID:          dbUser.ID,
+		CreatedAt:   dbUser.CreatedAt,
+		UpdatedAt:   dbUser.UpdatedAt,
+		Email:       dbUser.Email,
+		IsChirpyRed: dbUser.IsChirpyRed,
 	}
 
 	respondWithJSON(writer, 200, response)
@@ -466,6 +478,34 @@ func (cfg *apiConfig) deleteChirpHandler(writer http.ResponseWriter, req *http.R
 	err = cfg.dbQueries.DeleteChirp(req.Context(), dbChirp.ID)
 	if err != nil {
 		respondWithJsonError(writer, 404, errors.New("Chirp not found"))
+		return
+	}
+
+	respondWithJSON(writer, 204, basicJsonBody{})
+}
+
+func (cfg *apiConfig) upgradeUserHandler(writer http.ResponseWriter, req *http.Request) {
+	apiKey, err := auth.GetAPIKey(req.Header)
+	if apiKey != cfg.polkaKey {
+		respondWithJsonError(writer, 401, errors.New("Not Authorized"))
+		return
+	}
+	decoder := json.NewDecoder(req.Body)
+	hook := userIDWebhook{}
+
+	err = decoder.Decode(&hook)
+	if err != nil {
+		respondWithJsonError(writer, 500, err)
+		return
+	} else if hook.Event != "user.upgraded" {
+		respondWithJSON(writer, 204, basicJsonBody{})
+		return
+	}
+
+	err = cfg.dbQueries.UpgradeUser(req.Context(), hook.Data.UserID)
+
+	if err != nil {
+		respondWithJsonError(writer, 404, errors.New("User not found"))
 		return
 	}
 
